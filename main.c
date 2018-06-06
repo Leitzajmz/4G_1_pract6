@@ -22,6 +22,10 @@ void inicioDht11();
 short respuesta();
 unsigned int readData();
 void mostrarDatos();
+void temperaturaHumedad();
+void configuracionesIniciales();
+void habilitarInterrupciones();
+int comprobacionDelChecksum();
 
 #INT_TIMER0
 void timer0(){
@@ -29,7 +33,7 @@ void timer0(){
    if(contador>=16){
       contador=1;
    } 
-   set_timer0(120);
+   set_timer0(85);
    mostrarDatos();
 }
 
@@ -41,58 +45,26 @@ void ISR_RB0(){
 }
 
 void main(void) {
-   setup_oscillator(OSC_16MHZ);
-   set_tris_d(0x00);
-   set_tris_a(0x00);
-   set_tris_e(0x00); 
-   set_tris_b(0xFF); 
-   ext_int_edge(L_TO_H);
-   setup_timer_0(RTCC_INTERNAL | RTCC_DIV_128 | RTCC_8_BIT);
-   enable_interrupts(INT_TIMER0);
-   enable_interrupts(INT_EXT);
-   enable_interrupts(GLOBAL);
-   set_timer0(120);
+   configuracionesIniciales();
+   habilitarInterrupciones();
+   int sumaDatos = 0x00;
    
     while (1) { 
-      //output_e(cambio);
       inicioDht11();
       if(respuesta()){                    
          humidity = readData();          
          humidityDecimal = readData();                 
          temperatura = readData();                   
          temperaturaDecimal = readData();                     
-         checksum = readData();                  
-         if(checksum==(temperatura+temperaturaDecimal+humidity+humidityDecimal)){
-            switch(cambio){
-               case 1:
-                  output_e(cambio);
-                  dato[1]=(int)temperatura/10;
-                  dato[2]=(int)temperatura%10;
-                  dato[4]=(int)temperaturaDecimal/10;
-                  dato[8]=(int)temperaturaDecimal%10;
-               break;
-               case 2:
-                  output_e(cambio);
-                  dato[1]=(int)humidity/10;
-                  dato[2]=(int)humidity%10;
-                  dato[4]=(int)humidityDecimal/10;
-                  dato[8]=(int)humidityDecimal%10;
-               break;
-            }
+         checksum = readData(); 
+         sumaDatos = comprobacionDelChecksum();
+         if(checksum==(sumaDatos)){
+            temperaturaHumedad();
          }
       }
    }
 }
-void mostrarDatos(){
-   if(contador==2){
-         output_a(contador);
-         output_d(display[dato[contador]]+128);
-      }
-      else{
-         output_a(contador);
-         output_d(display[dato[contador]]);
-      } 
-}
+
 void inicioDht11(){
    dht_io = 0;  //configuracion del pin C4 como salida
    dataDht = 0;       //se encia un 0 al sensor
@@ -137,5 +109,52 @@ unsigned int readData(){
       }
    }
    return data;
+}
+
+void temperaturaHumedad(){
+   switch(cambio){
+      case 1:
+         output_e(cambio);
+         dato[1]=(int)temperatura/10;
+         dato[2]=(int)temperatura%10;
+         dato[4]=(int)temperaturaDecimal/10;
+         dato[8]=(int)temperaturaDecimal%10;
+      break;
+      case 2:
+         output_e(cambio);
+         dato[1]=(int)humidity/10;
+         dato[2]=(int)humidity%10;
+         dato[4]=(int)humidityDecimal/10;
+         dato[8]=(int)humidityDecimal%10;
+      break;
+   }
+}
+void mostrarDatos(){
+   if(contador==2){
+         output_a(contador);
+         output_d(display[dato[contador]]+128);
+      }
+      else{
+         output_a(contador);
+         output_d(display[dato[contador]]);
+      } 
+}
+void configuracionesIniciales(){
+   setup_oscillator(OSC_16MHZ);
+   set_tris_d(0x00);
+   set_tris_a(0x00);
+   set_tris_e(0x00); 
+   set_tris_b(0xFF); 
+   ext_int_edge(L_TO_H);
+   setup_timer_0(RTCC_INTERNAL | RTCC_DIV_128 | RTCC_8_BIT);
+   set_timer0(85);
+}
+void habilitarInterrupciones(){
+   enable_interrupts(INT_TIMER0);
+   enable_interrupts(INT_EXT);
+   enable_interrupts(GLOBAL);
+}
+int comprobacionDelChecksum(){
+   return temperatura+temperaturaDecimal+humidity+humidityDecimal;
 }
    
